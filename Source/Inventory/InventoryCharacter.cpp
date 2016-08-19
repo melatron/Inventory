@@ -3,7 +3,9 @@
 #include "Inventory.h"
 #include "InventoryCharacter.h"
 #include "InventoryProjectile.h"
+#include "InventoryGameMode.h"
 #include "Animation/AnimInstance.h"
+#include "Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
 #include "GameFramework/InputSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
@@ -49,6 +51,7 @@ AInventoryCharacter::AInventoryCharacter()
 	// Default offset from the character location for projectiles to spawn
 	GunOffset = FVector(100.0f, 30.0f, 10.0f);
 
+	Reach = 250.f;
 	// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P are set in the
 	// derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 }
@@ -59,6 +62,16 @@ void AInventoryCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint")); //Attach gun mesh component to Skeleton, doing it here because the skelton is not yet created in the constructor
+
+	Inventory.SetNum(4);
+
+	CurrentInteractable = nullptr;
+}
+
+void AInventoryCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	CheckForInteractables();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -71,6 +84,10 @@ void AInventoryCharacter::SetupPlayerInputComponent(class UInputComponent* Input
 
 	InputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	InputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+
+
+	InputComponent->BindAction("Interact", IE_Pressed, this, &AInventoryCharacter::Interact);
+	InputComponent->BindAction("ToggleInventory", IE_Pressed, this, &AInventoryCharacter::ToggleInventory);
 
 	//InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AInventoryCharacter::TouchStarted);
 	if (EnableTouchscreenMovement(InputComponent) == false)
@@ -88,6 +105,58 @@ void AInventoryCharacter::SetupPlayerInputComponent(class UInputComponent* Input
 	InputComponent->BindAxis("TurnRate", this, &AInventoryCharacter::TurnAtRate);
 	InputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	InputComponent->BindAxis("LookUpRate", this, &AInventoryCharacter::LookUpAtRate);
+}
+
+void AInventoryCharacter::UpdateGold(int32 Amount)
+{
+	Gold += Amount;
+}
+
+bool AInventoryCharacter::AddItemToInventory(APickup * Item)
+{
+	if (Item)
+	{
+		const int32 AvailableSlot = Inventory.Find(nullptr); // Find the first slot that is empty.
+		if (AvailableSlot != INDEX_NONE)
+		{
+			Inventory[AvailableSlot] = Item;
+			return true;
+		}
+		else
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("You can not carry any more items!"));
+			return false;
+		}
+	}
+
+	return false;
+}
+
+UTexture2D * AInventoryCharacter::GetThumbnailAtIntentorySlot(int32 Slot)
+{
+	if (Inventory[Slot])
+	{
+		return Inventory[Slot]->PickupThumbnail;
+	}
+	return nullptr;
+}
+
+FString AInventoryCharacter::GetItemNameAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot])
+	{
+		return Inventory[Slot]->ItemName;
+	}
+	return FString("None");
+}
+
+void AInventoryCharacter::UseItemAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot])
+	{
+		Inventory[Slot]->Use_Implementation();
+		Inventory[Slot] = NULL; // deletes the item from inventory after used.
+	}
 }
 
 void AInventoryCharacter::OnFire()
@@ -227,4 +296,63 @@ bool AInventoryCharacter::EnableTouchscreenMovement(class UInputComponent* Input
 		InputComponent->BindTouch(EInputEvent::IE_Repeat, this, &AInventoryCharacter::TouchUpdate);
 	}
 	return bResult;
+}
+
+void AInventoryCharacter::ToggleInventory()
+{
+	/*Check players hud state, if inventory is open then close it, otherwise open inventory.*/
+	AInventoryGameMode* GameMode = Cast<AInventoryGameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode->GetHUDState() == GameMode->HS_Ingame)
+	{
+		GameMode->ChangeHudState(GameMode->HS_Inventory);
+	}
+	else
+	{
+		GameMode->ChangeHudState(GameMode->HS_Ingame);
+	}
+}
+
+void AInventoryCharacter::Interact()
+{
+	if (CurrentInteractable)
+	{
+		CurrentInteractable->Interact_Implementation();
+	}
+}
+
+void AInventoryCharacter::CheckForInteractables()
+{
+	// To linetrace, get the start and traces
+	FVector StartTrace = FirstPersonCameraComponent->GetComponentLocation();
+	FVector ForwardVector = FirstPersonCameraComponent->GetForwardVector();
+	FVector EndTrace = (ForwardVector * Reach) + StartTrace;
+
+	// Declare a hitresult to store the raycast hit in
+
+	FHitResult* HitResult = new FHitResult();
+
+	// Initialize the query params - ignore the actor
+
+	FCollisionQueryParams CQP;
+	CQP.AddIgnoredActor(this);
+
+	//Cast the line trace         ECC_Visibility   ECC_WorldDynamic
+	//GetWorld()->LineTraceSingleByChannel(*HitResult, StartTrace, EndTrace, ECC_WorldDynamic, CQP);
+
+	if (GetWorld()->LineTraceSingleByChannel(*HitResult, StartTrace, EndTrace, ECC_Visibility, CQP))
+		UKismetSystemLibrary::DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Green, false, 5.f);
+
+	AInteractable* PotentialInteractable = Cast<AInteractable>(HitResult->GetActor());
+
+	if (PotentialInteractable == NULL)
+	{
+		HelpText = FString("");
+		CurrentInteractable = nullptr;
+		return;
+	}
+	else
+	{
+		CurrentInteractable = PotentialInteractable;
+		HelpText = PotentialInteractable->InteractableHelpText;
+	}
 }

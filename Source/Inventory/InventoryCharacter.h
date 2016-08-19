@@ -31,6 +31,7 @@ public:
 	AInventoryCharacter();
 
 	virtual void BeginPlay();
+	virtual void Tick(float DeltaTime) override;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -55,6 +56,42 @@ public:
 	/** AnimMontage to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	class UAnimMontage* FireAnimation;
+
+	/*The players help text*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+	FString HelpText;
+
+	/*The amount of gold the player has*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+	int32 Gold;
+
+	/*
+	Updates the gold
+	@params Amount this is the amount to update the coins by -> it can be positive or negative.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Inventory Functions")
+	void UpdateGold(int32 Amount);
+
+	/*Adds an item to the inventory*/
+	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
+	bool AddItemToInventory(APickup* Item);
+
+	/*Gets the thumbnail for a given inventory slot*/
+	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
+	UTexture2D* GetThumbnailAtIntentorySlot(int32 Slot);
+
+	/*Gets the item name for a given inventory slot*/
+	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
+	FString GetItemNameAtInventorySlot(int32 Slot);
+
+	/*Uses the item at a given inventory slot*/
+	UFUNCTION(BlueprintCallable, Category = "Inventory Functions")
+	void UseItemAtInventorySlot(int32 Slot);
+
+	/*The players inventory represented as TArray of pickup objects*/
+	UPROPERTY(EditAnywhere)
+	TArray<APickup*> Inventory;
+
 
 protected:
 	
@@ -104,6 +141,21 @@ protected:
 	 * @returns true if touch controls were enabled.
 	 */
 	bool EnableTouchscreenMovement(UInputComponent* InputComponent);
+
+private:
+	/*The players reach*/
+	float Reach;
+
+	/*Toggles the inventory*/
+	void ToggleInventory();
+	/*Interact with the current interactable if there is one*/
+	void Interact();
+
+	/*Checks for interactable items directly in front of the player using a linetrace, called on a per tich basic*/
+	void CheckForInteractables();
+
+	/*The interactable the player is curently looking at*/
+	AInteractable* CurrentInteractable;
 
 public:
 	/** Returns Mesh1P subobject **/

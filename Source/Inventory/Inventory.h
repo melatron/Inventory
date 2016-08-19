@@ -3,7 +3,7 @@
 #ifndef __INVENTORY_H__
 #define __INVENTORY_H__
 
-#include "EngineMinimal.h"
+#include "Engine.h"
 
 
 #endif
