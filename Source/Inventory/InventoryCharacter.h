@@ -3,6 +3,7 @@
 #include "GameFramework/Character.h"
 #include "Interactable.h"
 #include "Pickup.h"
+#include "Public/Inspectable.h"
 #include "InventoryCharacter.generated.h"
 
 class UInputComponent;
@@ -93,6 +94,10 @@ public:
 	TArray<APickup*> Inventory;
 
 
+	// Inspecting
+	UFUNCTION(BlueprintPure, Category = "Inspecting Functions")
+		bool StartInspecting(AInspectable* Item);
+
 protected:
 	
 	/** Fires a projectile. */
@@ -145,6 +150,10 @@ protected:
 private:
 	/*The players reach*/
 	float Reach;
+
+	/*Crouch*/
+	void StartCrouch();
+	void EndCrouch();
 
 	/*Toggles the inventory*/
 	void ToggleInventory();

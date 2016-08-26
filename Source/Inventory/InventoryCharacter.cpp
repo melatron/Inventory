@@ -86,6 +86,10 @@ void AInventoryCharacter::SetupPlayerInputComponent(class UInputComponent* Input
 	InputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
 
+	InputComponent->BindAction("Crouch", IE_Pressed, this, &AInventoryCharacter::StartCrouch);
+	InputComponent->BindAction("Crouch", IE_Released, this, &AInventoryCharacter::EndCrouch);
+
+
 	InputComponent->BindAction("Interact", IE_Pressed, this, &AInventoryCharacter::Interact);
 	InputComponent->BindAction("ToggleInventory", IE_Pressed, this, &AInventoryCharacter::ToggleInventory);
 
@@ -157,6 +161,25 @@ void AInventoryCharacter::UseItemAtInventorySlot(int32 Slot)
 		Inventory[Slot]->Use_Implementation();
 		Inventory[Slot] = NULL; // deletes the item from inventory after used.
 	}
+}
+
+bool AInventoryCharacter::StartInspecting(AInspectable* Item)
+{
+	if (Item)
+	{
+		Item->TeleportTo(this->GetPawnViewLocation(), this->GetActorRotation());
+		
+		this->Controller->SetIgnoreMoveInput(false);
+		this->SetActorEnableCollision(false);
+
+		//FirstPersonCameraComponent->Activate(false);
+		//FirstPersonCameraComponent->UserControll
+		//FirstPersonCameraComponent->bUsePawnControlRotation = false;
+		//this->bUseControllerRotationYaw = false;
+		return true;
+	}
+
+	return false;
 }
 
 void AInventoryCharacter::OnFire()
@@ -296,6 +319,34 @@ bool AInventoryCharacter::EnableTouchscreenMovement(class UInputComponent* Input
 		InputComponent->BindTouch(EInputEvent::IE_Repeat, this, &AInventoryCharacter::TouchUpdate);
 	}
 	return bResult;
+}
+
+void AInventoryCharacter::StartCrouch()
+{
+	//if (GetCharacterMovement()->IsMovingOnGround())
+	//{
+	//	Crouch();
+	//}
+
+	if (GetCharacterMovement()->CanCrouchInCurrentState())
+	{
+		GetCharacterMovement()->bWantsToCrouch = true;
+		//Crouch(true);
+	}
+}
+
+void AInventoryCharacter::EndCrouch()
+{
+	// if (GetCharacterMovement()->IsMovingOnGround())
+    // {
+	//	UnCrouch();
+    // }
+
+	if (GetCharacterMovement()->CanCrouchInCurrentState())
+	{
+		GetCharacterMovement()->bWantsToCrouch = false;
+		//UnCrouch(true);
+	}
 }
 
 void AInventoryCharacter::ToggleInventory()
